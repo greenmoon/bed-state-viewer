@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>jb_A245B_GUItool_analysis_BED_state_v04 - BED State Viewer HTML Mimic</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f7;
+      --panel: #ffffff;
+      --line: #c7ced7;
+      --text: #17202a;
+      --muted: #697584;
+      --accent: #156082;
+      --critical: #9c0006;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    header {
+      padding: 12px 18px 8px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: auto auto auto auto auto auto 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    button, input[type="file"]::file-selector-button {
+      min-height: 34px;
+      border: 1px solid #9facbc;
+      border-radius: 6px;
+      padding: 0 12px;
+      background: #ffffff;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:hover, input[type="file"]::file-selector-button:hover {
+      border-color: var(--accent);
+    }
+
+    label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    input[type="number"] {
+      width: 78px;
+      min-height: 34px;
+      border: 1px solid #9facbc;
+      border-radius: 6px;
+      padding: 0 8px;
+      font: inherit;
+    }
+
+    input[type="file"] {
+      width: 250px;
+      min-width: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .file-name {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: right;
+      font-size: 13px;
+    }
+
+    main {
+      display: grid;
+      grid-template-rows: minmax(470px, 1fr) auto auto;
+      height: calc(100vh - 126px);
+      min-height: 560px;
+      padding: 12px 14px 10px;
+      gap: 10px;
+    }
+
+    .plot-wrap {
+      min-height: 0;
+      border: 1px solid var(--line);
+      background: #fafafa;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .idx-label {
+      min-width: 92px;
+      color: var(--muted);
+      text-align: right;
+      font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .info-row {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+      gap: 12px;
+      align-items: center;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      font-size: 13px;
+    }
+
+    .info, .summary {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .summary {
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .critical {
+      color: var(--critical);
+      font-weight: 700;
+    }
+
+    @media (max-width: 920px) {
+      .toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .file-name {
+        text-align: left;
+      }
+
+      .info-row {
+        grid-template-columns: 1fr;
+      }
+
+      .summary {
+        text-align: left;
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>A245B BED State Analysis GUI - HTML mimic</h1>
+    <p>IBD=5 EMP=4 NBD=3 BTH=2 ALT=1. Wheel zooms around mouse time, horizontal drag pans only, click selects a segment.</p>
+  </header>
+
+  <section class="toolbar">
+    <input id="fileInput" type="file" accept=".csv,text/csv">
+    <button id="playButton" type="button">Play</button>
+    <button id="prevButton" type="button">&lt; Prev</button>
+    <button id="nextButton" type="button">Next &gt;</button>
+    <label><input id="fullRange" type="checkbox" checked> Full range</label>
+    <label>Local window sec <input id="windowSec" type="number" min="10" max="3600" step="10" value="180"></label>
+    <div id="fileName" class="file-name">embedded bed.xlsm mimic data</div>
+  </section>
+
+  <main>
+    <section class="plot-wrap">
+      <canvas id="plot" width="1200" height="640"></canvas>
+    </section>
+    <section class="slider-row">
+      <input id="segmentSlider" type="range" min="0" max="0" step="1" value="0">
+      <div id="idxLabel" class="idx-label">- / -</div>
+    </section>
+    <section class="info-row">
+      <div id="info" class="info">Frame: -</div>
+      <div id="summary" class="summary"></div>
+    </section>
+  </main>
+
+  <script>
+    const JB_STR = "jb_A245B_GUItool_analysis_BED_state_v04.html since 2026.06.14";
+    console.log(JB_STR);
+
+    const STATE_Y = { IBD: 5, EMP: 4, NBD: 3, BTH: 2, ALT: 1 };
+    const Y_STATE = { 5: "IBD", 4: "EMP", 3: "NBD", 2: "BTH", 1: "ALT" };
+    const STATE_ORDER = ["IBD", "EMP", "NBD", "BTH", "ALT"];
+    const STATE_COLOR = {
+      IBD: "#DCEDD5",
+      EMP: "#D0DFE6",
+      NBD: "#ECD5E9",
+      BTH: "#FBE3D6",
+      ALT: "#FF0000"
+    };
+    const STATE_EDGE = {
+      IBD: "#4EA72E",
+      EMP: "#156082",
+      NBD: "#A02B93",
+      BTH: "#E97132",
+      ALT: "#9C0006"
+    };
+
+    const DEFAULT_SEGMENTS = [["IBD",13],["EMP",16],["IBD",39],["EMP",7],["IBD",60],["EMP",1],["IBD",10],["EMP",4],["IBD",204],["EMP",5],["IBD",144],["EMP",8],["IBD",16],["EMP",8],["IBD",10],["EMP",2],["IBD",26],["EMP",14],["IBD",23],["EMP",39],["IBD",17],["EMP",51],["IBD",9],["EMP",17],["IBD",19],["EMP",18],["IBD",24],["EMP",9],["IBD",18],["EMP",7],["NBD",7],["EMP",16],["IBD",32],["EMP",12],["IBD",9],["EMP",2],["IBD",18],["EMP",6],["IBD",21],["EMP",9],["NBD",7],["EMP",11],["IBD",10],["EMP",17],["IBD",11],["EMP",12],["IBD",10],["EMP",6],["IBD",9],["EMP",13],["NBD",8],["EMP",4],["IBD",12],["EMP",1],["IBD",10],["EMP",4],["IBD",29],["IBD",42],["EMP",157],["IBD",3],["ALT",3],["NBD",7],["EMP",36],["NBD",9],["EMP",38],["IBD",8],["ALT",6],["IBD",10],["BTH",3],["IBD",54]];
+
+    const $ = (id) => document.getElementById(id);
+    const plot = $("plot");
+    const ctx = plot.getContext("2d");
+    const controls = {
+      fileInput: $("fileInput"),
+      playButton: $("playButton"),
+      prevButton: $("prevButton"),
+      nextButton: $("nextButton"),
+      fullRange: $("fullRange"),
+      windowSec: $("windowSec"),
+      slider: $("segmentSlider"),
+      fileName: $("fileName"),
+      idxLabel: $("idxLabel"),
+      info: $("info"),
+      summary: $("summary")
+    };
+
+    const state = {
+      segments: [],
+      currentIdx: 0,
+      playing: false,
+      playMs: 600,
+      timerId: null,
+      totalSec: 0,
+      xMin: 0,
+      xMax: 1,
+      manualRangeMode: false,
+      margins: { left: 82, right: 28, top: 52, bottom: 75 },
+      plotW: 1000,
+      plotH: 520,
+      yMin: 0.4,
+      yMax: 5.6,
+      dragging: false,
+      dragMoved: false,
+      dragStartX: 0,
+      dragStartMin: 0,
+      dragStartMax: 1
+    };
+
+    function cleanState(value) {
+      const raw = String(value ?? "").trim().toUpperCase();
+      return STATE_ORDER.find((key) => raw.includes(key)) || raw;
+    }
+
+    function safeFloat(value, fallback = 0) {
+      const n = Number(String(value ?? "").trim());
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function secToMmss(sec) {
+      const rounded = Math.round(sec);
+      const m = Math.floor(rounded / 60);
+      const s = rounded % 60;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function addTimeFields(rawSegments) {
+      let t = 0;
+      return rawSegments.map((raw, idx) => {
+        const stateName = cleanState(Array.isArray(raw) ? raw[0] : raw.state);
+        const second = safeFloat(Array.isArray(raw) ? raw[1] : raw.second, 0);
+        const seg = {
+          idx,
+          state: stateName,
+          second,
+          start: t,
+          end: t + second,
+          y: STATE_Y[stateName]
+        };
+        t += second;
+        return seg;
+      }).filter((seg) => STATE_Y[seg.state] && seg.second > 0);
+    }
+
+    function calcSummary(segments) {
+      const summary = Object.fromEntries(STATE_ORDER.map((st) => [st, { second: 0, count: 0 }]));
+      for (const seg of segments) {
+        summary[seg.state].second += seg.second;
+        summary[seg.state].count += 1;
+      }
+      const total = segments.reduce((sum, seg) => sum + seg.second, 0);
+      return { summary, total };
+    }
+
+    function findSegmentByTime(tSec) {
+      const segments = state.segments;
+      if (!segments.length || tSec <= 0) return 0;
+      const idx = segments.findIndex((seg) => seg.start <= tSec && tSec < seg.end);
+      return idx >= 0 ? idx : segments.length - 1;
+    }
+
+    function parseCsv(text) {
+      const lines = text.replace(/\r/g, "").split("\n").filter((line) => line.trim());
+      if (lines.length < 2) throw new Error("CSV needs a header row and data rows.");
+      const split = (line) => line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+      const header = split(lines[0]).map((v) => v.toLowerCase());
+      const statusIdx = ["status name", "status", "state", "label"].map((key) => header.indexOf(key)).find((idx) => idx >= 0);
+      const secondIdx = ["second", "seconds", "sec", "duration", "duration_sec"].map((key) => header.indexOf(key)).find((idx) => idx >= 0);
+      if (statusIdx === undefined || secondIdx === undefined) {
+        throw new Error("CSV needs status/state and second/duration columns.");
+      }
+      return lines.slice(1).map(split).map((row) => ({
+        state: cleanState(row[statusIdx]),
+        second: safeFloat(row[secondIdx], 0)
+      })).filter((seg) => STATE_Y[seg.state] && seg.second > 0);
+    }
+
+    function loadSegments(rawSegments, fileLabel) {
+      state.segments = addTimeFields(rawSegments);
+      state.currentIdx = 0;
+      state.totalSec = state.segments.length ? state.segments[state.segments.length - 1].end : 0;
+      state.xMin = 0;
+      state.xMax = Math.max(1, state.totalSec);
+      state.manualRangeMode = false;
+      controls.fullRange.checked = true;
+      controls.slider.min = "0";
+      controls.slider.max = String(Math.max(0, state.segments.length - 1));
+      controls.slider.value = "0";
+      controls.fileName.textContent = fileLabel;
+      redraw();
+    }
+
+    function resizeCanvas() {
+      const rect = plot.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      plot.width = Math.max(1, Math.floor(rect.width * dpr));
+      plot.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      state.width = rect.width;
+      state.height = rect.height;
+      state.plotW = Math.max(400, rect.width - state.margins.left - state.margins.right);
+      state.plotH = Math.max(260, rect.height - state.margins.top - state.margins.bottom);
+    }
+
+    function timeToX(t) {
+      const m = state.margins;
+      if (state.xMax <= state.xMin) return m.left;
+      return m.left + (t - state.xMin) / (state.xMax - state.xMin) * state.plotW;
+    }
+
+    function xToTime(x) {
+      const m = state.margins;
+      if (x < m.left || x > m.left + state.plotW) return null;
+      return state.xMin + (x - m.left) / state.plotW * (state.xMax - state.xMin);
+    }
+
+    function yToScene(y) {
+      const m = state.margins;
+      return m.top + (state.yMax - y) / (state.yMax - state.yMin) * state.plotH;
+    }
+
+    function gotoIdx(idx, options = {}) {
+      if (!state.segments.length) return;
+      state.currentIdx = Math.max(0, Math.min(Math.trunc(idx), state.segments.length - 1));
+      if (!options.fromSlider) controls.slider.value = String(state.currentIdx);
+      redraw();
+    }
+
+    function setCurrentIdxNoRangeChange(idx) {
+      if (!state.segments.length) return;
+      state.currentIdx = Math.max(0, Math.min(Math.trunc(idx), state.segments.length - 1));
+      controls.slider.value = String(state.currentIdx);
+      redraw();
+    }
+
+    function panToRange(newMin, span) {
+      if (!state.segments.length || state.totalSec <= 0) return false;
+      const safeSpan = Math.max(1, Math.min(span, Math.max(1, state.totalSec)));
+      const min = Math.max(0, Math.min(newMin, Math.max(0, state.totalSec - safeSpan)));
+      state.xMin = min;
+      state.xMax = Math.min(state.totalSec, min + safeSpan);
+      controls.fullRange.checked = false;
+      state.manualRangeMode = true;
+      const centerT = 0.5 * (state.xMin + state.xMax);
+      state.currentIdx = findSegmentByTime(centerT);
+      controls.slider.value = String(state.currentIdx);
+      redraw();
+      return true;
+    }
+
+    function panByFraction(frac) {
+      if (!state.segments.length) return;
+      if (controls.fullRange.checked) {
+        controls.fullRange.checked = false;
+        state.manualRangeMode = true;
+      }
+      const span = Math.max(1, state.xMax - state.xMin);
+      panToRange(state.xMin + frac * span, span);
+    }
+
+    function zoomAtX(x, wheelDelta) {
+      if (!state.segments.length || state.totalSec <= 0) return false;
+      let tCenter = xToTime(x);
+      const cur = state.segments[state.currentIdx];
+      if (tCenter === null) tCenter = 0.5 * (cur.start + cur.end);
+      if (controls.fullRange.checked) {
+        controls.fullRange.checked = false;
+        state.xMin = 0;
+        state.xMax = Math.max(1, state.totalSec);
+      }
+      state.manualRangeMode = true;
+      const oldSpan = Math.max(1, state.xMax - state.xMin);
+      const zoomFactor = wheelDelta > 0 ? 0.75 : 1.3333333333;
+      const minSpan = Math.max(3, Math.min(10, state.totalSec));
+      const newSpan = Math.max(minSpan, Math.min(state.totalSec, oldSpan * zoomFactor));
+      const ratio = Math.max(0, Math.min(1, (tCenter - state.xMin) / oldSpan));
+      let newMin = tCenter - ratio * newSpan;
+      let newMax = newMin + newSpan;
+      if (newMin < 0) {
+        newMin = 0;
+        newMax = newSpan;
+      }
+      if (newMax > state.totalSec) {
+        newMax = state.totalSec;
+        newMin = Math.max(0, newMax - newSpan);
+      }
+      state.xMin = newMin;
+      state.xMax = Math.max(newMin + 1, newMax);
+      setCurrentIdxNoRangeChange(findSegmentByTime(tCenter));
+      return true;
+    }
+
+    function resetFullRange() {
+      if (!state.segments.length) return;
+      state.manualRangeMode = false;
+      controls.fullRange.checked = true;
+      state.xMin = 0;
+      state.xMax = Math.max(1, state.totalSec);
+      redraw();
+    }
+
+    function togglePlay() {
+      if (!state.segments.length) return;
+      state.playing = !state.playing;
+      controls.playButton.textContent = state.playing ? "Pause" : "Play";
+      if (state.playing) {
+        state.timerId = setInterval(() => {
+          if (state.currentIdx >= state.segments.length - 1) {
+            state.playing = false;
+            controls.playButton.textContent = "Play";
+            clearInterval(state.timerId);
+            return;
+          }
+          gotoIdx(state.currentIdx + 1);
+        }, state.playMs);
+      } else {
+        clearInterval(state.timerId);
+      }
+    }
+
+    function updateVisibleRange(cur) {
+      const curMid = 0.5 * (cur.start + cur.end);
+      if (controls.fullRange.checked) {
+        state.manualRangeMode = false;
+        state.xMin = 0;
+        state.xMax = Math.max(1, state.totalSec);
+      } else if (state.manualRangeMode) {
+        const span = Math.max(1, state.xMax - state.xMin);
+        state.xMin = Math.max(0, Math.min(state.xMin, Math.max(0, state.totalSec - span)));
+        state.xMax = Math.min(state.totalSec, state.xMin + span);
+      } else {
+        const half = safeFloat(controls.windowSec.value, 180) / 2;
+        state.xMin = Math.max(0, curMid - half);
+        state.xMax = Math.min(state.totalSec, curMid + half);
+        if (state.xMax <= state.xMin) state.xMax = state.xMin + 1;
+      }
+    }
+
+    function drawText(text, x, y, options = {}) {
+      ctx.fillStyle = options.color || "#222222";
+      ctx.font = `${options.bold ? "700 " : ""}${options.size || 12}px Arial, Helvetica, sans-serif`;
+      ctx.textAlign = options.align || "left";
+      ctx.textBaseline = options.baseline || "alphabetic";
+      for (const [i, line] of String(text).split("\n").entries()) {
+        ctx.fillText(line, x, y + i * ((options.size || 12) + 3));
+      }
+    }
+
+    function redraw() {
+      resizeCanvas();
+      ctx.clearRect(0, 0, state.width, state.height);
+      ctx.fillStyle = "#FAFAFA";
+      ctx.fillRect(0, 0, state.width, state.height);
+      if (!state.segments.length) return;
+
+      const m = state.margins;
+      const cur = state.segments[state.currentIdx];
+      const curMid = 0.5 * (cur.start + cur.end);
+      updateVisibleRange(cur);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.strokeStyle = "#BBBBBB";
+      ctx.lineWidth = 1;
+      ctx.fillRect(m.left, m.top, state.plotW, state.plotH);
+      ctx.strokeRect(m.left, m.top, state.plotW, state.plotH);
+
+      drawText("A245B BED State Curve  |  IBD=5 EMP=4 NBD=3 BTH=2 ALT=1", 20, 24, { size: 15, bold: true });
+      drawText("HTML mimic | Wheel zoom at mouse fn/time | Drag horizontal pan only | R reset", 20, 43, { size: 11, color: "#666666" });
+
+      for (const yVal of [1, 2, 3, 4, 5]) {
+        const yy = yToScene(yVal);
+        ctx.strokeStyle = "rgba(221,221,221,0.8)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(m.left, yy);
+        ctx.lineTo(m.left + state.plotW, yy);
+        ctx.stroke();
+        const label = `${Y_STATE[yVal]}  ${yVal}`;
+        drawText(label, 20, yy + 4, { size: 13, color: STATE_EDGE[Y_STATE[yVal]], bold: Y_STATE[yVal] === "ALT" });
+      }
+
+      const span = state.xMax - state.xMin;
+      const tickStep = span <= 120 ? 10 : span <= 360 ? 30 : span <= 900 ? 60 : 120;
+      let t = Math.floor(state.xMin / tickStep) * tickStep;
+      while (t <= state.xMax + 0.001) {
+        if (t >= state.xMin) {
+          const xx = timeToX(t);
+          ctx.strokeStyle = "rgba(229,229,229,0.8)";
+          ctx.beginPath();
+          ctx.moveTo(xx, m.top);
+          ctx.lineTo(xx, m.top + state.plotH);
+          ctx.stroke();
+          drawText(`${Math.trunc(t)}\n${secToMmss(t)}`, xx - 16, m.top + state.plotH + 16, { size: 10, color: "#555555" });
+        }
+        t += tickStep;
+      }
+
+      const bandH = state.plotH / 5.8;
+      let prevYScene = null;
+      for (const seg of state.segments) {
+        if (seg.end < state.xMin || seg.start > state.xMax) continue;
+        const x1 = timeToX(Math.max(seg.start, state.xMin));
+        const x2 = timeToX(Math.min(seg.end, state.xMax));
+        const yy = yToScene(seg.y);
+        const w = Math.max(1, x2 - x1);
+        if (seg.state === "ALT") {
+          ctx.fillStyle = "rgba(255,0,0,0.14)";
+          ctx.fillRect(x1, m.top, w, state.plotH);
+        }
+        ctx.fillStyle = seg.state === "ALT" ? "rgba(255,0,0,0.86)" : STATE_COLOR[seg.state];
+        ctx.fillRect(x1, yy - bandH * 0.33, w, bandH * 0.66);
+        ctx.strokeStyle = STATE_EDGE[seg.state];
+        ctx.lineWidth = seg.state === "ALT" ? 4 : 3;
+        ctx.beginPath();
+        ctx.moveTo(x1, yy);
+        ctx.lineTo(x2, yy);
+        ctx.stroke();
+        if (prevYScene !== null && seg.start >= state.xMin) {
+          const xs = timeToX(seg.start);
+          ctx.strokeStyle = "rgba(85,85,85,0.65)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(xs, prevYScene);
+          ctx.lineTo(xs, yy);
+          ctx.stroke();
+        }
+        prevYScene = yy;
+      }
+
+      const midX = timeToX(curMid);
+      const midY = yToScene(cur.y);
+      ctx.save();
+      ctx.setLineDash([7, 5]);
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(midX, m.top);
+      ctx.lineTo(midX, m.top + state.plotH);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = STATE_EDGE[cur.state];
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(midX, midY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      const labelText = `SEG ${String(state.currentIdx + 1).padStart(3, "0")}/${String(state.segments.length).padStart(3, "0")}  ${cur.state}  ${secToMmss(cur.start)}-${secToMmss(cur.end)}  ${cur.second.toFixed(1)}s`;
+      const boxX = Math.min(Math.max(midX + 8, m.left + 4), m.left + state.plotW - 245);
+      const boxY = Math.max(m.top + 6, midY - 42);
+      ctx.fillStyle = "rgba(255,255,255,0.94)";
+      ctx.strokeStyle = STATE_EDGE[cur.state];
+      ctx.lineWidth = 2;
+      ctx.fillRect(boxX, boxY, 238, 38);
+      ctx.strokeRect(boxX, boxY, 238, 38);
+      drawText(labelText, boxX + 7, boxY + 17, { size: 11, bold: true });
+      if (cur.state === "ALT") {
+        drawText("CRITICAL: pre-leave-bed intention", boxX + 7, boxY + 32, { size: 10, color: "#9C0006", bold: true });
+      }
+
+      const legendX = Math.max(m.left + state.plotW - 470, 270);
+      const legendY = 16;
+      STATE_ORDER.forEach((st, i) => {
+        const lx = legendX + i * 88;
+        ctx.fillStyle = STATE_COLOR[st];
+        ctx.strokeStyle = STATE_EDGE[st];
+        ctx.lineWidth = 1;
+        ctx.fillRect(lx, legendY, 20, 12);
+        ctx.strokeRect(lx, legendY, 20, 12);
+        drawText(`${st}=${STATE_Y[st]}`, lx + 24, legendY + 10, { size: 11, color: STATE_EDGE[st], bold: st === "ALT" });
+      });
+
+      updateInfo();
+    }
+
+    function updateInfo() {
+      const cur = state.segments[state.currentIdx];
+      const { summary, total } = calcSummary(state.segments);
+      controls.idxLabel.textContent = `${state.currentIdx + 1} / ${state.segments.length}`;
+      let info = `Frame/segment ${String(state.currentIdx + 1).padStart(3, "0")}/${String(state.segments.length).padStart(3, "0")} | State=${cur.state} | y=${cur.y} | start=${secToMmss(cur.start)} | end=${secToMmss(cur.end)} | duration=${cur.second.toFixed(1)} sec | view=${secToMmss(state.xMin)}-${secToMmss(state.xMax)}`;
+      if (cur.state === "ALT") info += "  <<< CRITICAL: leave-bed intention / pre-alert >>>";
+      controls.info.textContent = info;
+      controls.info.classList.toggle("critical", cur.state === "ALT");
+      const parts = STATE_ORDER.map((st) => {
+        const sec = summary[st].second;
+        const pct = total > 0 ? 100 * sec / total : 0;
+        return `${st} ${sec.toFixed(0)}s ${pct.toFixed(1)}%`;
+      });
+      controls.summary.textContent = `Total ${secToMmss(total)} | ${parts.join(" | ")}`;
+    }
+
+    controls.fileInput.addEventListener("change", async () => {
+      const file = controls.fileInput.files && controls.fileInput.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        loadSegments(parseCsv(text), file.name);
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+
+    controls.playButton.addEventListener("click", togglePlay);
+    controls.prevButton.addEventListener("click", () => gotoIdx(state.currentIdx - 1));
+    controls.nextButton.addEventListener("click", () => gotoIdx(state.currentIdx + 1));
+    controls.fullRange.addEventListener("change", () => {
+      state.manualRangeMode = false;
+      redraw();
+    });
+    controls.windowSec.addEventListener("change", () => {
+      state.manualRangeMode = false;
+      redraw();
+    });
+    controls.slider.addEventListener("input", () => gotoIdx(Number(controls.slider.value), { fromSlider: true }));
+
+    plot.addEventListener("wheel", (event) => {
+      const rect = plot.getBoundingClientRect();
+      if (zoomAtX(event.clientX - rect.left, -event.deltaY)) event.preventDefault();
+    }, { passive: false });
+
+    plot.addEventListener("mousedown", (event) => {
+      if (!state.segments.length || event.button !== 0) return;
+      state.dragging = true;
+      state.dragMoved = false;
+      state.dragStartX = event.clientX;
+      state.dragStartMin = state.xMin;
+      state.dragStartMax = state.xMax;
+      plot.style.cursor = "grabbing";
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      if (!state.dragging) return;
+      const dx = event.clientX - state.dragStartX;
+      if (Math.abs(dx) >= 2) state.dragMoved = true;
+      if (state.dragMoved) {
+        const span = Math.max(1, state.dragStartMax - state.dragStartMin);
+        const secPerPx = span / Math.max(1, state.plotW);
+        panToRange(state.dragStartMin - dx * secPerPx, span);
+      }
+    });
+
+    window.addEventListener("mouseup", (event) => {
+      if (!state.dragging) return;
+      const rect = plot.getBoundingClientRect();
+      const tSec = xToTime(event.clientX - rect.left);
+      if (!state.dragMoved && tSec !== null) {
+        gotoIdx(findSegmentByTime(tSec));
+      } else if (state.dragMoved && tSec !== null) {
+        setCurrentIdxNoRangeChange(findSegmentByTime(tSec));
+      }
+      state.dragging = false;
+      state.dragMoved = false;
+      plot.style.cursor = "crosshair";
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (["INPUT", "BUTTON"].includes(document.activeElement.tagName)) return;
+      if (event.key === "ArrowLeft") gotoIdx(state.currentIdx - 1);
+      else if (event.key === "ArrowRight") gotoIdx(state.currentIdx + 1);
+      else if (event.key === "ArrowUp") gotoIdx(state.currentIdx + 10);
+      else if (event.key === "ArrowDown") gotoIdx(state.currentIdx - 10);
+      else if (event.key === "Home") gotoIdx(0);
+      else if (event.key === "End") gotoIdx(state.segments.length - 1);
+      else if (event.key === " ") {
+        event.preventDefault();
+        togglePlay();
+      } else if (event.key.toLowerCase() === "f") {
+        state.manualRangeMode = false;
+        controls.fullRange.checked = !controls.fullRange.checked;
+        redraw();
+      } else if (event.key.toLowerCase() === "r") {
+        resetFullRange();
+      } else if (event.key.toLowerCase() === "a") {
+        panByFraction(-0.2);
+      } else if (event.key.toLowerCase() === "d") {
+        panByFraction(0.2);
+      } else {
+        return;
+      }
+      event.preventDefault();
+    });
+
+    window.addEventListener("resize", redraw);
+    loadSegments(DEFAULT_SEGMENTS, "embedded bed.xlsm mimic data");
+  </script>
+</body>
+</html>
