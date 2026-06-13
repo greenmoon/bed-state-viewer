@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>jb_A245B_GUItool_analysis_BED_state_v04 - BED State Viewer HTML Mimic</title>
+  <title>jb_A245B_GUItool_analysis_BED_state_v04_R01 - BED State Viewer HTML Mimic</title>
   <style>
     :root {
       color-scheme: light;
@@ -197,6 +197,7 @@
       }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <header>
@@ -205,7 +206,7 @@
   </header>
 
   <section class="toolbar">
-    <input id="fileInput" type="file" accept=".csv,text/csv,xlsx">
+    <input id="fileInput" type="file" accept=".csv,.xlsx,.xlsm,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12">
     <button id="playButton" type="button">Play</button>
     <button id="prevButton" type="button">&lt; Prev</button>
     <button id="nextButton" type="button">Next &gt;</button>
@@ -357,6 +358,39 @@
         state: cleanState(row[statusIdx]),
         second: safeFloat(row[secondIdx], 0)
       })).filter((seg) => STATE_Y[seg.state] && seg.second > 0);
+    }
+
+    function rowToSegments(rows) {
+      const header = (rows[0] || []).map((v) => String(v ?? "").trim().toLowerCase());
+      let statusIdx = ["status name", "status", "state", "label"].map((key) => header.indexOf(key)).find((idx) => idx >= 0);
+      let secondIdx = ["second", "seconds", "sec", "duration", "duration_sec"].map((key) => header.indexOf(key)).find((idx) => idx >= 0);
+      let dataRows = rows;
+      if (statusIdx !== undefined && secondIdx !== undefined) {
+        dataRows = rows.slice(1);
+      } else {
+        statusIdx = 0;
+        secondIdx = 1;
+      }
+      return dataRows.map((row) => ({
+        state: cleanState(row[statusIdx]),
+        second: safeFloat(row[secondIdx], 0)
+      })).filter((seg) => STATE_Y[seg.state] && seg.second > 0);
+    }
+
+    function parseExcel(buffer) {
+      if (!window.XLSX) {
+        throw new Error("Excel parser not loaded. Please check internet access or use CSV.");
+      }
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) throw new Error("Workbook has no sheets.");
+      const sheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+      const segments = rowToSegments(rows);
+      if (!segments.length) {
+        throw new Error("Excel file needs Column A = Status Name and Column B = Second, or headers status/state and second/duration.");
+      }
+      return segments;
     }
 
     function loadSegments(rawSegments, fileLabel) {
@@ -679,8 +713,18 @@
       const file = controls.fileInput.files && controls.fileInput.files[0];
       if (!file) return;
       try {
-        const text = await file.text();
-        loadSegments(parseCsv(text), file.name);
+        const fileName = file.name.toLowerCase();
+        if (fileName.endsWith(".csv")) {
+          const text = await file.text();
+          loadSegments(parseCsv(text), file.name);
+          return;
+        }
+        if (fileName.endsWith(".xlsx") || fileName.endsWith(".xlsm")) {
+          const buffer = await file.arrayBuffer();
+          loadSegments(parseExcel(buffer), file.name);
+          return;
+        }
+        throw new Error("Unsupported file type. Please use .csv, .xlsx, or .xlsm.");
       } catch (error) {
         alert(error.message);
       }
