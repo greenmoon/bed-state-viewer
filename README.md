@@ -1,7 +1,7 @@
 # bed-state-viewer
 # bed-state-viewer
 
-<!--
+
 jb_A245B_how_to_gen_html_example_getting_started_V01.docx summary
 
 Purpose
@@ -59,4 +59,4 @@ Important Notes
 - The browser runs the JavaScript inside index.html.
 - If index.html uses the SheetJS CDN, Excel loading needs internet access.
 - For fully offline use, bundle the library into the HTML.
--->
+
