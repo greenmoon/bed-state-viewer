@@ -1,10 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>jb_A245B_GUItool_analysis_BED_state_v04 - BED State Viewer HTML Mimic
-  </title>
+  <title>jb_A245B_GUItool_analysis_BED_state_v04 - BED State Viewer HTML Mimic</title>
   <style>
     :root {
       color-scheme: light;
@@ -58,7 +58,7 @@
       background: #fbfcfd;
     }
 
-    button, input[type="file"]::file-selector-button {
+    button, select, input[type="file"]::file-selector-button {
       min-height: 34px;
       border: 1px solid #9facbc;
       border-radius: 6px;
@@ -69,8 +69,14 @@
       cursor: pointer;
     }
 
-    button:hover, input[type="file"]::file-selector-button:hover {
+    button:hover, select:hover, input[type="file"]::file-selector-button:hover {
       border-color: var(--accent);
+    }
+
+    select {
+      min-width: 230px;
+      max-width: 340px;
+      background: #ffffff;
     }
 
     label {
@@ -98,6 +104,25 @@
       color: var(--muted);
     }
 
+    .repo-bar {
+      display: grid;
+      grid-template-columns: auto minmax(230px, 360px) auto auto 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .repo-status {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
     .file-name {
       min-width: 0;
       overflow: hidden;
@@ -111,7 +136,7 @@
     main {
       display: grid;
       grid-template-rows: minmax(470px, 1fr) auto auto;
-      height: calc(100vh - 126px);
+      height: calc(100vh - 170px);
       min-height: 560px;
       padding: 12px 14px 10px;
       gap: 10px;
@@ -184,6 +209,10 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .repo-bar {
+        grid-template-columns: 1fr;
+      }
+
       .file-name {
         text-align: left;
       }
@@ -202,7 +231,7 @@
 </head>
 <body>
   <header>
-    <h1>A245B BED State Analysis GUI - HTML mimic R01</h1>
+    <h1>A245B BED State Analysis GUI - HTML mimic</h1>
     <p>IBD=5 EMP=4 NBD=3 BTH=2 ALT=1. Wheel zooms around mouse time, horizontal drag pans only, click selects a segment.</p>
   </header>
 
@@ -214,6 +243,16 @@
     <label><input id="fullRange" type="checkbox" checked> Full range</label>
     <label>Local window sec <input id="windowSec" type="number" min="10" max="3600" step="10" value="180"></label>
     <div id="fileName" class="file-name">embedded bed.xlsm mimic data</div>
+  </section>
+
+  <section class="repo-bar">
+    <label for="repoExcelSelect">Repo Excel</label>
+    <select id="repoExcelSelect">
+      <option value="">Scanning repo Excel files...</option>
+    </select>
+    <button id="loadRepoExcelButton" type="button">Load repo Excel</button>
+    <button id="refreshRepoExcelButton" type="button">Refresh</button>
+    <div id="repoStatus" class="repo-status">GitHub repo: greenmoon/bed-state-viewer</div>
   </section>
 
   <main>
@@ -252,6 +291,13 @@
       ALT: "#9C0006"
     };
 
+    const REPO_OWNER = "greenmoon";
+    const REPO_NAME = "bed-state-viewer";
+    const REPO_BRANCH = "main";
+    const REPO_API_ROOT = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents`;
+    const REPO_RAW_ROOT = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}`;
+    const REPO_EXCEL_FALLBACK = ["bed2.xlsx", "bed.xlsm"];
+
     const DEFAULT_SEGMENTS = [["IBD",13],["EMP",16],["IBD",39],["EMP",7],["IBD",60],["EMP",1],["IBD",10],["EMP",4],["IBD",204],["EMP",5],["IBD",144],["EMP",8],["IBD",16],["EMP",8],["IBD",10],["EMP",2],["IBD",26],["EMP",14],["IBD",23],["EMP",39],["IBD",17],["EMP",51],["IBD",9],["EMP",17],["IBD",19],["EMP",18],["IBD",24],["EMP",9],["IBD",18],["EMP",7],["NBD",7],["EMP",16],["IBD",32],["EMP",12],["IBD",9],["EMP",2],["IBD",18],["EMP",6],["IBD",21],["EMP",9],["NBD",7],["EMP",11],["IBD",10],["EMP",17],["IBD",11],["EMP",12],["IBD",10],["EMP",6],["IBD",9],["EMP",13],["NBD",8],["EMP",4],["IBD",12],["EMP",1],["IBD",10],["EMP",4],["IBD",29],["IBD",42],["EMP",157],["IBD",3],["ALT",3],["NBD",7],["EMP",36],["NBD",9],["EMP",38],["IBD",8],["ALT",6],["IBD",10],["BTH",3],["IBD",54]];
 
     const $ = (id) => document.getElementById(id);
@@ -259,6 +305,10 @@
     const ctx = plot.getContext("2d");
     const controls = {
       fileInput: $("fileInput"),
+      repoExcelSelect: $("repoExcelSelect"),
+      loadRepoExcelButton: $("loadRepoExcelButton"),
+      refreshRepoExcelButton: $("refreshRepoExcelButton"),
+      repoStatus: $("repoStatus"),
       playButton: $("playButton"),
       prevButton: $("prevButton"),
       nextButton: $("nextButton"),
@@ -392,6 +442,64 @@
         throw new Error("Excel file needs Column A = Status Name and Column B = Second, or headers status/state and second/duration.");
       }
       return segments;
+    }
+
+    function setRepoStatus(text) {
+      controls.repoStatus.textContent = text;
+    }
+
+    function setRepoOptions(files) {
+      controls.repoExcelSelect.innerHTML = "";
+      if (!files.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "No .xlsx / .xlsm files found";
+        controls.repoExcelSelect.appendChild(option);
+        return;
+      }
+      for (const file of files) {
+        const option = document.createElement("option");
+        option.value = file.path;
+        option.textContent = file.path;
+        controls.repoExcelSelect.appendChild(option);
+      }
+    }
+
+    async function discoverRepoExcelFiles() {
+      setRepoStatus(`Scanning GitHub repo ${REPO_OWNER}/${REPO_NAME}...`);
+      controls.refreshRepoExcelButton.disabled = true;
+      try {
+        const response = await fetch(REPO_API_ROOT);
+        if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
+        const items = await response.json();
+        const files = items
+          .filter((item) => item.type === "file" && /\.(xlsx|xlsm)$/i.test(item.name))
+          .map((item) => ({ path: item.name }));
+        setRepoOptions(files);
+        setRepoStatus(files.length ? `Found ${files.length} repo Excel file(s).` : "No repo Excel files found.");
+      } catch (error) {
+        const fallbackFiles = REPO_EXCEL_FALLBACK.map((path) => ({ path }));
+        setRepoOptions(fallbackFiles);
+        setRepoStatus(`Repo scan failed; using fallback list. ${error.message}`);
+      } finally {
+        controls.refreshRepoExcelButton.disabled = false;
+      }
+    }
+
+    async function loadExcelFromRepo(path) {
+      if (!path) throw new Error("Please choose a repo Excel file first.");
+      const url = `${REPO_RAW_ROOT}/${encodeURIComponent(path).replace(/%2F/g, "/")}`;
+      setRepoStatus(`Loading ${path} from GitHub...`);
+      controls.loadRepoExcelButton.disabled = true;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Cannot load ${path}: HTTP ${response.status}`);
+        const buffer = await response.arrayBuffer();
+        loadSegments(parseExcel(buffer), `repo: ${path}`);
+        setRepoStatus(`Loaded repo Excel: ${path}`);
+      } finally {
+        controls.loadRepoExcelButton.disabled = false;
+      }
     }
 
     function loadSegments(rawSegments, fileLabel) {
@@ -731,6 +839,19 @@
       }
     });
 
+    controls.refreshRepoExcelButton.addEventListener("click", () => {
+      discoverRepoExcelFiles();
+    });
+
+    controls.loadRepoExcelButton.addEventListener("click", async () => {
+      try {
+        await loadExcelFromRepo(controls.repoExcelSelect.value);
+      } catch (error) {
+        setRepoStatus(error.message);
+        alert(error.message);
+      }
+    });
+
     controls.playButton.addEventListener("click", togglePlay);
     controls.prevButton.addEventListener("click", () => gotoIdx(state.currentIdx - 1));
     controls.nextButton.addEventListener("click", () => gotoIdx(state.currentIdx + 1));
@@ -785,7 +906,7 @@
     });
 
     window.addEventListener("keydown", (event) => {
-      if (["INPUT", "BUTTON"].includes(document.activeElement.tagName)) return;
+      if (["INPUT", "BUTTON", "SELECT"].includes(document.activeElement.tagName)) return;
       if (event.key === "ArrowLeft") gotoIdx(state.currentIdx - 1);
       else if (event.key === "ArrowRight") gotoIdx(state.currentIdx + 1);
       else if (event.key === "ArrowUp") gotoIdx(state.currentIdx + 10);
@@ -812,6 +933,7 @@
     });
 
     window.addEventListener("resize", redraw);
+    discoverRepoExcelFiles();
     loadSegments(DEFAULT_SEGMENTS, "embedded bed.xlsm mimic data");
   </script>
 </body>
