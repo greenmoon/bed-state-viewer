@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>jb_A245B_GUItool_analysis_BED_state_v04 - BED State Viewer HTML Mimic</title>
+  <title>jb_A245B_GUItool_analysis_BED_state_v04 - BED State Viewer HTML Mimic R02</title>
   <style>
     :root {
       color-scheme: light;
@@ -71,6 +71,26 @@
 
     button:hover, select:hover, input[type="file"]::file-selector-button:hover {
       border-color: var(--accent);
+    }
+
+    .primary-load {
+      border-color: #2f8f4e;
+      background: #34a853;
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 0 0 3px rgba(52, 168, 83, 0.16);
+    }
+
+    .primary-load:hover {
+      border-color: #23723c;
+      background: #2f974d;
+    }
+
+    .primary-load:disabled {
+      border-color: #9bbba5;
+      background: #8ec79f;
+      color: #f7fff9;
+      cursor: wait;
     }
 
     select {
@@ -250,7 +270,7 @@
     <select id="repoExcelSelect">
       <option value="">Scanning repo Excel files...</option>
     </select>
-    <button id="loadRepoExcelButton" type="button">Load repo Excel</button>
+    <button id="loadRepoExcelButton" class="primary-load" type="button">Load repo Excel</button>
     <button id="refreshRepoExcelButton" type="button">Refresh</button>
     <div id="repoStatus" class="repo-status">GitHub repo: greenmoon/bed-state-viewer</div>
   </section>
